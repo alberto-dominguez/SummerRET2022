@@ -1,9 +1,9 @@
 import numpy as np
 
 # dimensions
-WORLD_HEIGHT = 2
-WORLD_WIDTH = 2
-MAX_TIME = 5000
+WORLD_X = 20
+WORLD_Y = 20
+MAX_TIME = 1000
 
 # possible actions of the robot
 NORTH = 0  # 0
@@ -19,9 +19,9 @@ ACTION_SPACE_SIZE = 8
 
 # initial state
 PREDATOR_START = [0, 0]
-PREY_START = [WORLD_HEIGHT - 1, WORLD_WIDTH - 1]
-ESCAPE_SQ1 = [WORLD_HEIGHT - 1, 0]
-ESCAPE_SQ2 = [0, WORLD_WIDTH - 1]
+PREY_START = [WORLD_X - 1, WORLD_Y - 1]
+ESCAPE_SQ1 = [WORLD_X - 1, 0]
+ESCAPE_SQ2 = [0, WORLD_Y - 1]
 INIT_STATE = [PREDATOR_START, PREY_START]
 
 
@@ -29,9 +29,10 @@ INIT_STATE = [PREDATOR_START, PREY_START]
 # gremlin represents the probability that strategically selected action is replaced with a random action
 # noise/uncertainty to account for unexpected disturbances, modeling error, and/or unknown dynamics
 def step(state, pred_action, prey_action, gremlin):
+
     pred_pos, prey_pos = state
-    pred_x = pred_pos[0]
-    pred_y = pred_pos[1]
+    predator_x = pred_pos[0]
+    predator_y = pred_pos[1]
     prey_x = prey_pos[0]
     prey_y = prey_pos[1]
     dx = 0
@@ -43,21 +44,21 @@ def step(state, pred_action, prey_action, gremlin):
         pred_action = np.random.choice(ACTIONS)
 
     if pred_action == NORTH:
-        pred_pos = [max(min(pred_x - 1 + dx, WORLD_HEIGHT - 1), 0), max(min(pred_y + dy,     WORLD_WIDTH - 1), 0)]
+        pred_pos = [max(min(predator_x - 1 + dx, WORLD_X - 1), 0), max(min(predator_y + dy, WORLD_Y - 1), 0)]
     elif pred_action == NE:
-        pred_pos = [max(min(pred_x - 1 + dx, WORLD_HEIGHT - 1), 0), max(min(pred_y + 1 + dy, WORLD_WIDTH - 1), 0)]
+        pred_pos = [max(min(predator_x - 1 + dx, WORLD_X - 1), 0), max(min(predator_y + 1 + dy, WORLD_Y - 1), 0)]
     elif pred_action == EAST:
-        pred_pos = [max(min(pred_x + dx,     WORLD_HEIGHT - 1), 0), max(min(pred_y + 1 + dy, WORLD_WIDTH - 1), 0)]
+        pred_pos = [max(min(predator_x + dx, WORLD_X - 1), 0), max(min(predator_y + 1 + dy, WORLD_Y - 1), 0)]
     elif pred_action == SE:
-        pred_pos = [max(min(pred_x + 1 + dx, WORLD_HEIGHT - 1), 0), max(min(pred_y + 1 + dy, WORLD_WIDTH - 1), 0)]
+        pred_pos = [max(min(predator_x + 1 + dx, WORLD_X - 1), 0), max(min(predator_y + 1 + dy, WORLD_Y - 1), 0)]
     elif pred_action == SOUTH:
-        pred_pos = [max(min(pred_x + 1 + dx, WORLD_HEIGHT - 1), 0), max(min(pred_y + dy,     WORLD_WIDTH - 1), 0)]
+        pred_pos = [max(min(predator_x + 1 + dx, WORLD_X - 1), 0), max(min(predator_y + dy, WORLD_Y - 1), 0)]
     elif pred_action == SW:
-        pred_pos = [max(min(pred_x + 1 + dx, WORLD_HEIGHT - 1), 0), max(min(pred_y - 1 + dy, WORLD_WIDTH - 1), 0)]
+        pred_pos = [max(min(predator_x + 1 + dx, WORLD_X - 1), 0), max(min(predator_y - 1 + dy, WORLD_Y - 1), 0)]
     elif pred_action == WEST:
-        pred_pos = [max(min(pred_x + dx,     WORLD_HEIGHT - 1), 0), max(min(pred_y - 1 + dy, WORLD_WIDTH - 1), 0)]
+        pred_pos = [max(min(predator_x + dx, WORLD_X - 1), 0), max(min(predator_y - 1 + dy, WORLD_Y - 1), 0)]
     elif pred_action == NW:
-        pred_pos = [max(min(pred_x - 1 + dx, WORLD_HEIGHT - 1), 0), max(min(pred_y - 1 + dy, WORLD_WIDTH - 1), 0)]
+        pred_pos = [max(min(predator_x - 1 + dx, WORLD_X - 1), 0), max(min(predator_y - 1 + dy, WORLD_Y - 1), 0)]
 
     # prey action
 
@@ -65,47 +66,43 @@ def step(state, pred_action, prey_action, gremlin):
         prey_action = np.random.choice(ACTIONS)
 
     if prey_action == NORTH:
-        prey_pos = [max(min(prey_x - 1 + dx, WORLD_HEIGHT - 1), 0), max(min(prey_y + dy,     WORLD_WIDTH - 1), 0)]
+        prey_pos = [max(min(prey_x - 1 + dx, WORLD_X - 1), 0), max(min(prey_y + dy, WORLD_Y - 1), 0)]
     elif prey_action == NE:
-        prey_pos = [max(min(prey_x - 1 + dx, WORLD_HEIGHT - 1), 0), max(min(prey_y + 1 + dy, WORLD_WIDTH - 1), 0)]
+        prey_pos = [max(min(prey_x - 1 + dx, WORLD_X - 1), 0), max(min(prey_y + 1 + dy, WORLD_Y - 1), 0)]
     elif prey_action == EAST:
-        prey_pos = [max(min(prey_x + dx,     WORLD_HEIGHT - 1), 0), max(min(prey_y + 1 + dy, WORLD_WIDTH - 1), 0)]
+        prey_pos = [max(min(prey_x + dx, WORLD_X - 1), 0), max(min(prey_y + 1 + dy, WORLD_Y - 1), 0)]
     elif prey_action == SE:
-        prey_pos = [max(min(prey_x + 1 + dx, WORLD_HEIGHT - 1), 0), max(min(prey_y + 1 + dy, WORLD_WIDTH - 1), 0)]
+        prey_pos = [max(min(prey_x + 1 + dx, WORLD_X - 1), 0), max(min(prey_y + 1 + dy, WORLD_Y - 1), 0)]
     elif prey_action == SOUTH:
-        prey_pos = [max(min(prey_x + 1 + dx, WORLD_HEIGHT - 1), 0), max(min(prey_y + dy,     WORLD_WIDTH - 1), 0)]
+        prey_pos = [max(min(prey_x + 1 + dx, WORLD_X - 1), 0), max(min(prey_y + dy, WORLD_Y - 1), 0)]
     elif prey_action == SW:
-        prey_pos = [max(min(prey_x + 1 + dx, WORLD_HEIGHT - 1), 0), max(min(prey_y - 1 + dy, WORLD_WIDTH - 1), 0)]
+        prey_pos = [max(min(prey_x + 1 + dx, WORLD_X - 1), 0), max(min(prey_y - 1 + dy, WORLD_Y - 1), 0)]
     elif prey_action == WEST:
-        prey_pos = [max(min(prey_x + dx,     WORLD_HEIGHT - 1), 0), max(min(prey_y - 1 + dy, WORLD_WIDTH - 1), 0)]
+        prey_pos = [max(min(prey_x + dx, WORLD_X - 1), 0), max(min(prey_y - 1 + dy, WORLD_Y - 1), 0)]
     elif prey_action == NW:
-        prey_pos = [max(min(prey_x - 1 + dx, WORLD_HEIGHT - 1), 0), max(min(prey_y - 1 + dy, WORLD_WIDTH - 1), 0)]
+        prey_pos = [max(min(prey_x - 1 + dx, WORLD_X - 1), 0), max(min(prey_y - 1 + dy, WORLD_Y - 1), 0)]
 
     state = [pred_pos, prey_pos]
-
+    print(state)
     return state
 
 
 # play for an episode, return amount of time spent in the episode
 def episode(pred_q_value, prey_q_value, eps, gremlin, alpha):
 
-    # initialize the counter that will track the total time steps in this episode
+    # initialize the counter that will track the total time taken for this episode
     time = 0
-
-    # initialize grid
-    # fig, ax = plt.subplots(1, 1, figsize=(WORLD_HEIGHT, WORLD_WIDTH))
-    # plt.meshgrid(np.arange(0, WORLD_HEIGHT, 1), np.arange(0, WORLD_WIDTH, 1))
 
     # initialize state
     state = INIT_STATE
     pred_pos = PREDATOR_START
     prey_pos = PREY_START
 
-    # choose an initial action based on epsilon-greedy algorithm (or when first starting a simulation)
+    # choose an initial action based on epsilon-greedy algorithm
     if np.random.binomial(1, eps) == 1 or time == 0:
 
         # eps% of the time, select actions randomly
-        # TODO - Randomness of prey and predator actions should be made independent
+        # TODO - Randomness of prey and predator actions should be independent
         pred_action = np.random.choice(ACTIONS)
         prey_action = np.random.choice(ACTIONS)
 
@@ -131,7 +128,7 @@ def episode(pred_q_value, prey_q_value, eps, gremlin, alpha):
     while prey_pos != ESCAPE_SQ1 and prey_pos != ESCAPE_SQ2 and pred_pos != prey_pos and time < MAX_TIME:
 
         # determine the next state
-        next_state = step(state, pred_pos, prey_pos, gremlin)
+        next_state = step(state, pred_action, prey_action, gremlin)
 
         # choose the next action based on epsilon-greedy algorithm
         # TODO - Randomness of prey and predator actions should be made independent
@@ -166,21 +163,18 @@ def episode(pred_q_value, prey_q_value, eps, gremlin, alpha):
         time += 1
 
     print(time, state)
-
     return time, state
 
 
-# plots the figure average time step vs number of episodes
 def runner(eps, gremlin, alpha):
     episode_limit = 1
 
-    pred_q_value = np.zeros((WORLD_HEIGHT, WORLD_WIDTH, ACTION_SPACE_SIZE))
-    prey_q_value = np.zeros((WORLD_HEIGHT, WORLD_WIDTH, ACTION_SPACE_SIZE))
-    steps = []
+    pred_q_value = np.zeros((WORLD_X, WORLD_Y, ACTION_SPACE_SIZE))
+    prey_q_value = np.zeros((WORLD_X, WORLD_Y, ACTION_SPACE_SIZE))
     ep = 0
 
     while ep < episode_limit:
-        steps.append(episode(pred_q_value, prey_q_value, eps, gremlin, alpha))
+        episode(pred_q_value, prey_q_value, eps, gremlin, alpha)
         ep += 1
 
 
