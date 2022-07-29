@@ -1,9 +1,10 @@
 import numpy as np
+import time
 
 # dimensions
 WORLD_X = 20
 WORLD_Y = 20
-MAX_TIME = 1000
+MAX_TIME = 2500
 
 # possible actions of the robot
 NORTH = 0  # 0
@@ -23,6 +24,11 @@ EVADER_START = [WORLD_X - 1, WORLD_Y - 1]
 ESCAPE_SQ1 = [WORLD_X - 1, 0]
 ESCAPE_SQ2 = [0, WORLD_Y - 1]
 INIT_STATE = [PURSUER_START, EVADER_START]
+
+# results
+PURSUER_WIN = 1
+EVADER_WIN = -1
+DRAW = 0
 
 
 # This function defines how the pursuer and evader move on the grid.
@@ -44,19 +50,19 @@ def step(state, pursuer_action, evader_action, gremlin):
         pursuer_action = np.random.choice(ACTIONS)
 
     if pursuer_action == NORTH:
-        pursuer_pos = [max(min(pursuer_x - 1 + dx, WORLD_X - 1), 0), max(min(pursuer_y + dy, WORLD_Y - 1), 0)]
+        pursuer_pos = [max(min(pursuer_x - 1 + dx, WORLD_X - 1), 0), max(min(pursuer_y + dy,     WORLD_Y - 1), 0)]
     elif pursuer_action == NE:
         pursuer_pos = [max(min(pursuer_x - 1 + dx, WORLD_X - 1), 0), max(min(pursuer_y + 1 + dy, WORLD_Y - 1), 0)]
     elif pursuer_action == EAST:
-        pursuer_pos = [max(min(pursuer_x + dx, WORLD_X - 1), 0), max(min(pursuer_y + 1 + dy, WORLD_Y - 1), 0)]
+        pursuer_pos = [max(min(pursuer_x + dx,     WORLD_X - 1), 0), max(min(pursuer_y + 1 + dy, WORLD_Y - 1), 0)]
     elif pursuer_action == SE:
         pursuer_pos = [max(min(pursuer_x + 1 + dx, WORLD_X - 1), 0), max(min(pursuer_y + 1 + dy, WORLD_Y - 1), 0)]
     elif pursuer_action == SOUTH:
-        pursuer_pos = [max(min(pursuer_x + 1 + dx, WORLD_X - 1), 0), max(min(pursuer_y + dy, WORLD_Y - 1), 0)]
+        pursuer_pos = [max(min(pursuer_x + 1 + dx, WORLD_X - 1), 0), max(min(pursuer_y + dy,     WORLD_Y - 1), 0)]
     elif pursuer_action == SW:
         pursuer_pos = [max(min(pursuer_x + 1 + dx, WORLD_X - 1), 0), max(min(pursuer_y - 1 + dy, WORLD_Y - 1), 0)]
     elif pursuer_action == WEST:
-        pursuer_pos = [max(min(pursuer_x + dx, WORLD_X - 1), 0), max(min(pursuer_y - 1 + dy, WORLD_Y - 1), 0)]
+        pursuer_pos = [max(min(pursuer_x + dx,     WORLD_X - 1), 0), max(min(pursuer_y - 1 + dy, WORLD_Y - 1), 0)]
     elif pursuer_action == NW:
         pursuer_pos = [max(min(pursuer_x - 1 + dx, WORLD_X - 1), 0), max(min(pursuer_y - 1 + dy, WORLD_Y - 1), 0)]
 
@@ -83,84 +89,71 @@ def step(state, pursuer_action, evader_action, gremlin):
         evader_pos = [max(min(evader_x - 1 + dx, WORLD_X - 1), 0), max(min(evader_y - 1 + dy, WORLD_Y - 1), 0)]
 
     state = [pursuer_pos, evader_pos]
-    # make plot with x1,y1 and x2,y2 in different colors
-    # erase existing plot
     return state
 
 
 # play for an episode, return amount of time spent in the episode
+# game keeps going until (1) evader reaches one of the escape squares or (2) pursuer catches evader
 def episode(pursuer_q_value, evader_q_value, eps, gremlin, alpha):
 
     # initialize the counter that will track the total time taken for this episode
-    time = 0
+    t = 0
 
     # initialize state
     state = INIT_STATE
     pursuer_pos = PURSUER_START
     evader_pos = EVADER_START
 
-    # choose an initial action based on epsilon-greedy algorithm
-    if np.random.binomial(1, eps) == 1 or time == 0:
+    # choose initial pursuer and evader actions randomly
+    pursuer_action = np.random.choice(ACTIONS)
+    evader_action = np.random.choice(ACTIONS)
 
-        # eps% of the time, select actions randomly
-        # TODO - Randomness of pursuer and evader actions should be independent
-        pursuer_action = np.random.choice(ACTIONS)
-        evader_action = np.random.choice(ACTIONS)
-
-    else:
-
-        # (1-eps)% of the time, we select an action greedily
-        # Select the action associated with the maximum q_value found among all q_values stored in values_
-        # Algorithmically:
-        # for each action_ and value_ stored in values_
-        #   if the variable value_ is maximum in the list values_
-        #     select the action_ associated with that q_value.
-
-        pursuer_values_ = pursuer_q_value[pursuer_pos[0], pursuer_pos[1], :]
-        pursuer_action = np.random.choice(
-            [action_ for action_, value_ in enumerate(pursuer_values_) if (value_ - np.max(pursuer_values_)).all()])
-
-        evader_values_ = evader_q_value[evader_pos[0], evader_pos[1], :]
-        evader_action = np.random.choice(
-            [action_ for action_, value_ in enumerate(evader_values_) if (value_ - np.max(evader_values_)).all()])
-
-    # game keeps going until (1) evader reaches one of the escape squares or (2) pursuer catches evader
-    # added a max_time to prevent an infinite loop; we'll consider this a successful evasion
     pursuer_wins = False
     evader_wins = False
     draw = False
     result = ""
+
     while (not pursuer_wins) and (not evader_wins) and (not draw):
 
         # determine the next state
         next_state = step(state, pursuer_action, evader_action, gremlin)
 
-        # choose the next action based on epsilon-greedy algorithm
-        # TODO - Randomness of pursuer and evader actions should be made independent
+        # choose the next pursuer action based on epsilon-greedy algorithm
         if np.random.binomial(1, eps) == 1:
 
+            # eps% of the time, select action randomly
             next_pursuer_action = np.random.choice(ACTIONS)
-            next_evader_action = np.random.choice(ACTIONS)
 
         else:
 
+            # (1-eps)% of the time, we select an action greedily
+            # Select the action associated with the maximum q_value found among all q_values stored in values_
+            # for each action_ and value_ stored in values_
+            #   if the variable value_ is maximum in the list values_
+            #     select the action_ associated with that q_value.
             pursuer_values_ = pursuer_q_value[pursuer_pos[0], pursuer_pos[1], :]
             next_pursuer_action = np.random.choice(
                 [action_ for action_, value_ in enumerate(pursuer_values_) if (value_ == np.max(pursuer_values_)).any()])
 
+        # choose the next evader action based on epsilon-greedy algorithm
+        if np.random.binomial(1, eps) == 1:
+            next_evader_action = np.random.choice(ACTIONS)
+        else:
             evader_values_ = pursuer_q_value[evader_pos[0], evader_pos[1], :]
             next_evader_action = np.random.choice(
                 [action_ for action_, value_ in enumerate(evader_values_) if (value_ == np.max(evader_values_)).any()])
 
-        # SARSA update - For more info about SARSA algorithm, please refer to p. 129 of the S&B textbook.
+        # set up reward structure
         if pursuer_pos == evader_pos:
             pursuer_reward = 1000
         else:
             pursuer_reward = -1
-        if evader_pos == ESCAPE_SQ1:
+        if (evader_pos == ESCAPE_SQ1) or (evader_pos == ESCAPE_SQ2):
             evader_reward = 1000
         else:
             evader_reward = -1
+
+        # SARSA update - For more info about SARSA algorithm, please refer to p. 129 of the S&B textbook.
 
         # improved reward for terminal state
         pursuer_q_value[pursuer_pos[0], pursuer_pos[1], pursuer_action] = \
@@ -177,34 +170,52 @@ def episode(pursuer_q_value, evader_q_value, eps, gremlin, alpha):
         pursuer_action = next_pursuer_action
         evader_action = next_evader_action
         pursuer_pos, evader_pos = state
-        time += 1
+        t += 1
 
         # determine game state
         pursuer_wins = (pursuer_pos == evader_pos)
         if pursuer_wins:
-            result = "Pursuer wins"
+            result = PURSUER_WIN
         evader_wins = (evader_pos == ESCAPE_SQ1) or (evader_pos == ESCAPE_SQ2)
         if evader_wins:
-            result = "Evader wins"
-        draw = (time == MAX_TIME)
+            result = EVADER_WIN
+        draw = (t == MAX_TIME)
         if draw:
-            result = "Draw"
+            result = DRAW
 
-    print(time, pursuer_pos, evader_pos, result)
-    return time, state
+    return t, state, result
 
 
 def runner(eps, gremlin, alpha):
-    episode_limit = 1000
+
+    pursuer_win_cnt = 0
+    evader_win_cnt = 0
+    draw_cnt = 0
 
     pursuer_q_value = np.zeros((WORLD_X, WORLD_Y, ACTION_SPACE_SIZE))
     evader_q_value = np.zeros((WORLD_X, WORLD_Y, ACTION_SPACE_SIZE))
-    ep = 0
 
+    t0 = time.process_time()
+    episode_limit = 1000
+    ep = 0
     while ep < episode_limit:
-        episode(pursuer_q_value, evader_q_value, eps, gremlin, alpha)
         ep += 1
+        t, s, r = episode(pursuer_q_value, evader_q_value, eps, gremlin, alpha)
+        if r == PURSUER_WIN:
+            pursuer_win_cnt = pursuer_win_cnt + 1
+        elif r == EVADER_WIN:
+            evader_win_cnt = evader_win_cnt + 1
+        else:
+            draw_cnt = draw_cnt + 1
+    t1 = time.process_time()
+
+    print("epsilon-greedy parameter = ", eps, ", noise parameter = ", gremlin, ", alpha = ", alpha)
+    print("pursuer wins: ", pursuer_win_cnt, ", evader wins: ", evader_win_cnt, ", draws: ", draw_cnt)
+    print("Time elapsed: ", t1-t0, " seconds")
 
 
 if __name__ == '__main__':
+
+    print("BASELINE SCENARIO")
     runner(0.2, 0.1, 0.5)
+    print()
