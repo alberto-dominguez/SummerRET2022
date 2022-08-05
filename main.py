@@ -3,12 +3,15 @@
 
 import math
 import numpy as np
+from matplotlib import pyplot as plt
 
-# dimensions
-WORLD_X = 20
-WORLD_Y = 20
-MAX_TIME = 2500
-NUM_RUNS = 10
+# dimensions and limits
+WORLD_X = 40
+WORLD_Y = 40
+MAX_TIME = 2000
+NUM_RUNS = 100
+EPISODE_LIMIT = 1000
+FINAL_REWARD = MAX_TIME * WORLD_X * math.sqrt(2)
 
 # possible actions of the agents
 STAY = 0
@@ -97,7 +100,7 @@ def step(state, pursuer_action, evader_action, gremlin):
 
 # play for an episode, return amount of time spent in the episode
 # game keeps going until (1) evader reaches one of the escape squares or (2) pursuer catches evader
-def episode(pursuer_q_value, evader_q_value, eps, gremlin, alpha):
+def episode(pursuer_q_value, evader_q_value, eps, gremlin, alpha, plot):
 
     # initialize the counter that will track the total time taken for this episode
     t = 0
@@ -106,15 +109,14 @@ def episode(pursuer_q_value, evader_q_value, eps, gremlin, alpha):
     state = INIT_STATE
     pursuer_pos = PURSUER_START
     evader_pos = EVADER_START
-
-    # choose initial pursuer and evader actions randomly
-    pursuer_action = np.random.choice(PURSUER_ACTIONS)
-    evader_action = np.random.choice(EVADER_ACTIONS)
-
     pursuer_wins = False
     evader_wins = False
     draw = False
     result = ""
+
+    # choose initial pursuer and evader actions randomly
+    pursuer_action = np.random.choice(PURSUER_ACTIONS)
+    evader_action = np.random.choice(EVADER_ACTIONS)
 
     while (not pursuer_wins) and (not evader_wins) and (not draw):
 
@@ -145,17 +147,18 @@ def episode(pursuer_q_value, evader_q_value, eps, gremlin, alpha):
         else:
             evader_values_ = pursuer_q_value[evader_pos[0], evader_pos[1], :]
             next_evader_action = np.random.choice(
-                [action_ for action_, value_ in enumerate(evader_values_) if (value_ == np.max(evader_values_)).any()])
+                [action_ for action_, value_ in enumerate(evader_values_) if (value_ == np.max(evader_values_)).any()
+                 ])
 
-        # set up reward structure
+        # set up separate reward structures for pursuer and evader
         if pursuer_pos == evader_pos:
-            pursuer_reward = 1000
+            pursuer_reward = FINAL_REWARD
         else:
-            pursuer_reward = -1
+            pursuer_reward = -distance(evader_pos, pursuer_pos)
         if (evader_pos == ESCAPE_SQ1) or (evader_pos == ESCAPE_SQ2):
-            evader_reward = 1000
+            evader_reward = FINAL_REWARD
         else:
-            evader_reward = -1
+            evader_reward = -min(distance(evader_pos, ESCAPE_SQ1), distance(evader_pos, ESCAPE_SQ2))
 
         # SARSA update - For more info about SARSA algorithm, please refer to p. 129 of the S&B textbook.
 
@@ -169,6 +172,21 @@ def episode(pursuer_q_value, evader_q_value, eps, gremlin, alpha):
             + alpha * (evader_reward + evader_q_value[evader_pos[0], evader_pos[1], next_evader_action]
                        - evader_q_value[evader_pos[0], evader_pos[1], next_evader_action])
 
+        # if this is the last episode of the last run (i.e., max learning has occurred), save plots for animation
+        if plot:
+            circle1 = plt.Circle((pursuer_pos[0], pursuer_pos[1]), 0.25, color='r')
+            circle2 = plt.Circle((evader_pos[0], evader_pos[1]), 0.25, color='g')
+            fig, ax = plt.subplots()
+            ax.add_patch(circle1)
+            ax.add_patch(circle2)
+            plt.xlim(0, WORLD_X)
+            plt.ylim(0, WORLD_Y)
+            plt.title('Game Board')
+            plt.grid()
+            filename = "plt" + str(t) + ".png"
+            fig.savefig(filename)
+            plt.close(fig)
+
         # update variables
         state = next_state
         pursuer_action = next_pursuer_action
@@ -178,52 +196,64 @@ def episode(pursuer_q_value, evader_q_value, eps, gremlin, alpha):
 
         # determine game state
         pursuer_wins = (pursuer_pos == evader_pos)
+        evader_wins = (evader_pos == ESCAPE_SQ1) or (evader_pos == ESCAPE_SQ2)
+        draw = (t == MAX_TIME)
         if pursuer_wins:
             result = PURSUER_WIN
-        evader_wins = (evader_pos == ESCAPE_SQ1) or (evader_pos == ESCAPE_SQ2)
         if evader_wins:
             result = EVADER_WIN
-        draw = (t == MAX_TIME)
         if draw:
             result = DRAW
 
     return t, state, result
 
 
-def runner(eps, gremlin, alpha):
+def runner(eps, gremlin, alpha, pursuer_q_value, evader_q_value, last_run):
 
     pursuer_win_cnt = 0
     evader_win_cnt = 0
 
-    pursuer_q_value = np.zeros((WORLD_X, WORLD_Y, PURSUER_ACTION_SPACE_SIZE))
-    evader_q_value = np.zeros((WORLD_X, WORLD_Y, EVADER_ACTION_SPACE_SIZE))
-
-    episode_limit = 1000
     ep = 0
-    while ep < episode_limit:
+    while ep < EPISODE_LIMIT:
         ep += 1
-        t, s, r = episode(pursuer_q_value, evader_q_value, eps, gremlin, alpha)
+        last_episode = (ep == EPISODE_LIMIT)
+        t, s, r = episode(pursuer_q_value, evader_q_value, eps, gremlin, alpha, last_run and last_episode)
         if r == PURSUER_WIN:
-            pursuer_win_cnt = pursuer_win_cnt + 1
+            pursuer_win_cnt += 1
         elif r == EVADER_WIN:
-            evader_win_cnt = evader_win_cnt + 1
+            evader_win_cnt += 1
         # ignore draws
 
-    pursuer_win_pct = pursuer_win_cnt / episode_limit
-    evader_win_pct = evader_win_cnt / episode_limit
+    pursuer_win_pct = pursuer_win_cnt / EPISODE_LIMIT
+    evader_win_pct = evader_win_cnt / EPISODE_LIMIT
     pursuer_win_pct = round((pursuer_win_pct / (pursuer_win_pct + evader_win_pct))*100, 1)  # ignore draws
     return pursuer_win_pct
 
 
+def distance(square1, square2):
+    x_d = (square1[0] - square2[0])
+    y_d = (square1[1] - square2[1])**2
+    return math.sqrt(x_d**2 + y_d**2)
+
+
 def simulator(eps, gremlin, alpha):
+
+    # allow the Q values to improve from one run to the next
+    pursuer_q_value = np.zeros((WORLD_X, WORLD_Y, PURSUER_ACTION_SPACE_SIZE))
+    evader_q_value = np.zeros((WORLD_X, WORLD_Y, EVADER_ACTION_SPACE_SIZE))
+
     run = 0
     agg_sum = 0
     agg_sq_sum = 0
+
     while run < NUM_RUNS:
-        res = runner(eps, gremlin, alpha)
-        agg_sum = agg_sum + res
-        agg_sq_sum = agg_sq_sum + res**2
-        run = run + 1
+        last_run = (run == NUM_RUNS - 1)
+        res = runner(eps, gremlin, alpha, pursuer_q_value, evader_q_value, last_run)
+        agg_sum += res
+        agg_sq_sum += res**2
+        run += 1
+        print("runs: ", run, ", pursuer win pct: ", round(agg_sum/run, 1), "%")
+
     avg = agg_sum / NUM_RUNS
     avg_sq = agg_sq_sum / NUM_RUNS
     std_err = math.sqrt(avg_sq - avg**2) / math.sqrt(NUM_RUNS)
@@ -234,9 +264,9 @@ def simulator(eps, gremlin, alpha):
 if __name__ == '__main__':
 
     print("Baseline scenario: ", simulator(0.2, 0.1, 0.5))
-    print("Increase alpha by 20%: ", simulator(0.2, 0.1, 0.6))
-    print("Decrease alpha by 20%: ", simulator(0.2, 0.1, 0.4))
-    print("Increase epsilon by 20%: ", simulator(0.3, 0.1, 0.5))
-    print("Decrease epsilon by 20%: ", simulator(0.3, 0.1, 0.5))
-    print("Double the noise: ", simulator(0.2, 0.2, 0.5))
-    print("Half the noise: ", simulator(0.2, 0.05, 0.5))
+    # print("Increase alpha by 20%: ", simulator(0.2, 0.1, 0.6))
+    # print("Decrease alpha by 20%: ", simulator(0.2, 0.1, 0.4))
+    # print("Increase epsilon by 20%: ", simulator(0.3, 0.1, 0.5))
+    # print("Decrease epsilon by 20%: ", simulator(0.3, 0.1, 0.5))
+    # print("Double the noise: ", simulator(0.2, 0.2, 0.5))
+    # print("Half the noise: ", simulator(0.2, 0.05, 0.5))
